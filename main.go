@@ -1,13 +1,14 @@
 package main
 
 import (
+	"math"
 	"bufio"
 	"fmt"
-	"strings"
 	"log"
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -69,13 +70,18 @@ func getAsteroidsDifference(webAsteroidNumbers, localAsteroidNumbers []string) [
 	var diffAsteroidNumbers []string
 
 	for _, webAst := range webAsteroidNumbers {
+		var is_exist = false
 		if v, _ := strconv.Atoi(webAst); v > MAX_LOCAL_ASTEROID_NUMBER {
 			continue
 		}
 		for _, localAst := range localAsteroidNumbers {
-			if webAst == localAst {
+			is_exist = webAst == localAst
+			if is_exist {
 				break
 			}
+		}
+		if is_exist {
+			continue
 		}
 		fmt.Println("Asteroid " + webAst + " doesn't exist")
 		diffAsteroidNumbers = append(diffAsteroidNumbers, webAst)
@@ -83,9 +89,8 @@ func getAsteroidsDifference(webAsteroidNumbers, localAsteroidNumbers []string) [
 	return diffAsteroidNumbers
 }
 
-
 type AxisInfo struct {
-	axis float32
+	axis     float32
 	axisDiff float32
 }
 
@@ -94,19 +99,18 @@ func getAxisesFromCatalog(filepath string) map[string]float64 {
 	var fileDesc = getFileDesc(filepath)
 	var scanner = fileDesc.scanner
 	var count = 0
-	var res map[string]float64
+	var res = make(map[string]float64)
 	for scanner.Scan() {
 		if count < SKIP_LINE_COUNT {
 			count++
 			continue
 		}
 		var asteroidData = scanner.Text()
-		var data = strings.Split(asteroidData, " ")
-		var asteroidNumber = data[0][1:len(data[0])-1]
-		var asteroidAxis = data[2]
-		axis, err := strconv.ParseFloat(asteroidAxis, 32)
+		var data = strings.Fields(asteroidData)
+		var asteroidNumber = data[0][1 : len(data[0])-1]
+		axis, err := strconv.ParseFloat(data[2], 32)
 		if err != nil {
-			log.Fatal("error during casting " + asteroidAxis)
+			log.Fatal("error during casting " + data[2])
 		}
 		res[asteroidNumber] = axis
 	}
@@ -120,11 +124,25 @@ func main() {
 	url := "http://www.minorplanetcenter.org/iau/lists/JupiterTrojans.html"
 	var webAsteroidNumbers = getTrojanAsteroidsFromWeb(url)
 	var localAsteroidNumbers = getAsteroidsFromFile(filepath)
-	var diffAsteroidNumbers = getAsteroidsDifference(webAsteroidNumbers, localAsteroidNumbers)
+	var diffAsteroidNumbers = getAsteroidsDifference(
+		webAsteroidNumbers, localAsteroidNumbers)
 	var axises = getAxisesFromCatalog(catalogFilepath)
 
+	var asteroidAxisOverCount = 0
+	var maxDiff = 0.
 	for _, val := range diffAsteroidNumbers {
 		var axis = axises[val]
-		fmt.Println(val + " " + axis + " " + axis - RESONANCE_AXIS)
+		var diff = axis-RESONANCE_AXIS
+		if math.Abs(diff) > 0.1 {
+			asteroidAxisOverCount++
+			maxDiff = diff
+		} else {
+			var s_diff = strconv.FormatFloat(diff, 'f', 3, 64)
+			fmt.Println(val + " " + strconv.FormatFloat(axis, 'f', 3, 64) + " " + s_diff)
+		}
 	}
+	fmt.Printf("Maximal difference: %f\n", maxDiff)
+	fmt.Printf("Different asteroids number: %d\n", len(diffAsteroidNumbers))
+	fmt.Printf("Different asteroids number with bigger axis: %d\n", asteroidAxisOverCount)
+	fmt.Printf("Asteroids, that must be checked: %d\n", len(diffAsteroidNumbers) - asteroidAxisOverCount)
 }
