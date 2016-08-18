@@ -135,7 +135,9 @@ func main() {
 		var diff = axis-RESONANCE_AXIS
 		if math.Abs(diff) > 0.1 {
 			asteroidAxisOverCount++
-			maxDiff = diff
+			if maxDiff < diff {
+				maxDiff = diff
+			}
 		} else {
 			var s_diff = strconv.FormatFloat(diff, 'f', 3, 64)
 			fmt.Println(val + " " + strconv.FormatFloat(axis, 'f', 3, 64) + " " + s_diff)
